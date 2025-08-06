@@ -7,7 +7,6 @@ tags: [swift, ios, reverse engineering]
 ---
 
 ## Missing Emoji Picker for iOS
-### The problem
 So, I've been working for a small iOS app for a while, and I have stumbled upon needing some kind of emoji picker. Quick googling revealed some third-party libraries (like [MCEmojiPicker](https://github.com/izyumkin/MCEmojiPicker) and [Elegant-Emoji-Picker](https://github.com/Finalet/Elegant-Emoji-Picker)), but I thought "Well, this is common scenario, I can't believe that UIKit has no premade way of doing this". Additionally, relying on the third-party library that is trying to mock system UI feels like a bad idea for me. 
 
 After some more googling I [found](https://www.reddit.com/r/SwiftUI/comments/1i2kfco/comment/m7j64vp/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button) interesting "private" `UIKeyboardType`:
