@@ -43,3 +43,37 @@ hr {
   font-size: 2.5em;
   opacity: 0.3;
 }
+
+/* Image styling */
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.image-wrapper {
+  margin: 20px 0;
+  text-align: center;
+}
+
+.image-caption {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.image-with-border {
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.image-centered {
+  display: block;
+  margin: 0 auto;
+}
+
+.image-shadow {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
