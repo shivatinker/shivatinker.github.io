@@ -3,6 +3,30 @@ hr {
   margin-bottom: 20px;
 }
 
+/* Code block wrapping */
+.hljs {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  overflow-x: visible !important;
+}
+
+/* Also target any other code blocks that might not use highlight.js */
+pre code {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  overflow-x: visible !important;
+}
+
+/* Ensure code blocks have proper padding and don't overflow */
+pre {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  overflow-x: visible !important;
+}
+
 /* Post navigation links */
 .post_navi {
   display: flex;
@@ -49,6 +73,8 @@ img {
   max-width: 100%;
   height: auto;
   border-radius: 4px;
+  display: block;
+  margin: 0 auto;
 }
 
 .image-wrapper {
