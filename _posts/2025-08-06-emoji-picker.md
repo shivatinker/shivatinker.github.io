@@ -6,6 +6,7 @@ author: "Andrii Zinoviev"
 tags: [swift, ios, reverse engineering]
 ---
 
+## Missing Emoji Picker for iOS
 ### The problem
 So, I've been working for a small iOS app for a while, and I have stumbled upon needing some kind of emoji picker. Quick googling revealed some third-party libraries (like [MCEmojiPicker](https://github.com/izyumkin/MCEmojiPicker) and [Elegant-Emoji-Picker](https://github.com/Finalet/Elegant-Emoji-Picker)), but I thought "Well, this is common scenario, I can't believe that UIKit has no premade way of doing this". Additionally, relying on the third-party library that is trying to mock system UI feels like a bad idea for me. 
 
@@ -54,11 +55,13 @@ struct ContentView: View {
 ```
 
 Here is the result:
+
 ![1.png](/assets/images/emoji-picker/1.png)
 
 Looks pretty good, I'd say even good enough for simple apps. You can add additional logic to resign the first responder after one character was entered, state management and additional stuff.
 ### The Apple way
 After some time, I found this interesting UI inside system iOS Reminders app:
+
 ![2.png](/assets/images/emoji-picker/2.png)
 
 Wait, this is the same exact scenario that I have been looking for! And there is 2 key differences from my "homebrew" implementation:
@@ -78,9 +81,11 @@ However, there is a way to attach the debugger to **all** Simulator processes. F
 Wait... Where is our beloved emoji feature? 
 Turns out that Reminders app does not fully work without iCloud sync enabled (pretty sure that same pattern would be instantly rejected in the App Store). 
 There is a sneaky "Update" button on the home screen:
+
 ![4.png](/assets/images/emoji-picker/4.png)
 
 Upon tapping, this will redirect to the system settings and prompt you to sign in to the Apple Account. No problem, I already have my simulator on the host machine with Apple Account, should not be a problem in a VM.
+
 ![5.png](/assets/images/emoji-picker/5.png)
 
 Well, there is actually a problem. Turns out that it is impossible to sign in into Simulator running under macOS VM. Hence, we have no luck in even seeing out needed feature in the Reminders app. How inconvenient. Because I had no desire of putting my main machine under SIP disablement security risks, I gave up. For a while.
@@ -113,16 +118,20 @@ After checking it in VM, I decided to try it on my main machine to continue work
 Remember, **ALWAYS** turn SIP on after experimenting. You never know when hackers will be able to abuse the debugger access to steal all your data!
 ### Getting in
 So, finally we have an access to the debugger. No we just need to launch our simulator, log into Apple Account, launch Reminders and attach to the process in Xcode:
+
 ![6.png](/assets/images/emoji-picker/6.png)
 
 Here it is:
+
 ![7.png](/assets/images/emoji-picker/7.png)
 
 First thing first - let's navigate to the needed screen and run Debug View Hierarchy:
+
 ![8.png](/assets/images/emoji-picker/8.png)
 
 How cool is that?
 First thing that caught my attention is this strange vertical bar on the custom emoji button. What can it be? Focusing on it, we get the anticipated answer:
+
 ![9.png](/assets/images/emoji-picker/9.png)
 ```
 **<_TtC9RemindersP33_4FE8BD245B420E02FDB196B5E5563CD014EmojiTextField: 0x10185d400; baseClass = UITextField; frame = (29.5 450.5; 53 53); text = ''; alpha = 0; opaque = NO; gestureRecognizers = <NSArray: 0x600000d7c9c0>; borderStyle = None; background = <_UITextFieldNoBackgroundProvider: 0x6000000056c0: textfield=<_TtC9RemindersP33_4FE8BD245B420E02FDB196B5E5563CD014EmojiTextField: 0x10185d400>>; layer = <CALayer: 0x600000380a60>>**
@@ -155,9 +164,11 @@ final class EmojiPickerUIView: UITextField {
     }
 }
 ```
+
 ![10.png](/assets/images/emoji-picker/10.png)
 
 Much better! And the search is now working properly:
+
 ![11.png](/assets/images/emoji-picker/11.png)
 
 However, there is still one minor difference, and I was really aimed at perfection after all these adventures. This small "Dictation" button is still present in our implementation. Let's get rid of it!
@@ -179,9 +190,11 @@ Let's try setting a symbolic regex breakpoint on all symbols that contain `setFo
 Breakpoint 1: 5 locations.
 ```
 Now, run the Reminders application, reopen the list editor and click on the custom emoji button:
+
 ![12.png](/assets/images/emoji-picker/12.png)
 
 Looks like we're getting somewhere. `-[UITextInputTraits setForceDisableDictation:]` is actually a pretty simple method, just storing the value of `w2` (the first parameter in ObjC world) into self (`x0`) instance:
+
 ![13.png](/assets/images/emoji-picker/13.png)
 
 We can even print the description of `$x0` (`self` argument):
@@ -268,19 +281,23 @@ let imp = class_getMethodImplementation(object_getClass(self), selector)!
 let function = unsafeBitCast(imp, to: PrivateIMP.self)
 function(self, selector, true)
 ```
+
 ![14.png](/assets/images/emoji-picker/14.png)
 
 Finally, we get the exact same result as the Reminders app!
 ### Some assembly required
 Sometimes, it is beneficial to debug and disassemble the binary at the same time, cross-referencing symbols and behavior. To obtain system app binary in the first place, you can either grab it from the simulator runtime, or extract from real iOS IPSW. 
 I decided to take a look at the Reminders in Hopper Disassembler. Firstly, I have found all symbols, related to `EmojiTextField` to see if I missed something:
+
 ![15.png](/assets/images/emoji-picker/15.png)
 
 Looks like `EmojiTextField` is pretty simple, since there is no configuration logic in init:
+
 ![16.png](/assets/images/emoji-picker/16.png)
 
 ### Text input source override
 However, for some reason, `EmojiTextField` overrides private `_textInputSource` and `set_textInputSource:` methods:
+
 ![17.png](/assets/images/emoji-picker/17.png)
 
 Here, `_textInputSource` returns `0x1` always, and `set_textInputSource` does nothing. Digging a little into `UIKitCore` binary I found this little C function: `_UITextInputSourceToString`. We can execute it from lldb with all interesting values of `textInputSource`:
@@ -316,6 +333,7 @@ Using this approach, we can get all valid values for `textInputSource`:
 So apparently, `EmojiTextField` overrides input source to always be equal to `KBTap`. I found no real reason to do this, but I guess Apple engineers have stumbled upon some bug with external keyboards or Apple Pencil.
 ### Gluing logic
 Now, let's try to find the logic for enabling and disabling the emoji text input. Given that `EmojiTextField` has no real logic inside, my guess was to look for its delegate. It is fairly easy to find using `lldb` that its delegate is `TTRIListDetailEmblemsTableCell`. We can find implemented delegate methods using Hopper:
+
 ![18.png](/assets/images/emoji-picker/18.png)
 
 Leveraging built in pseudo-decompiler we can see the actual implementation. Let's look at the  `-[_TtC9Reminders30TTRIListDetailEmblemsTableCell textField:shouldChangeCharactersInRange:replacementString:]:`
