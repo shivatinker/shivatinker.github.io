@@ -55,10 +55,12 @@ struct ContentView: View {
 
 Here is the result:
 ![1.png](/assets/images/emoji-picker/1.png)
+
 Looks pretty good, I'd say even good enough for simple apps. You can add additional logic to resign the first responder after one character was entered, state management and additional stuff.
 ### The Apple way
 After some time, I found this interesting UI inside system iOS Reminders app:
 ![2.png](/assets/images/emoji-picker/2.png)
+
 Wait, this is the same exact scenario that I have been looking for! And there is 2 key differences from my "homebrew" implementation:
 - Emoji search is fully functional.
 - The dictation button is missing, which is a good thing, because does not actually do anything useful for this particular control.
@@ -77,8 +79,10 @@ Wait... Where is our beloved emoji feature?
 Turns out that Reminders app does not fully work without iCloud sync enabled (pretty sure that same pattern would be instantly rejected in the App Store). 
 There is a sneaky "Update" button on the home screen:
 ![4.png](/assets/images/emoji-picker/4.png)
+
 Upon tapping, this will redirect to the system settings and prompt you to sign in to the Apple Account. No problem, I already have my simulator on the host machine with Apple Account, should not be a problem in a VM.
 ![5.png](/assets/images/emoji-picker/5.png)
+
 Well, there is actually a problem. Turns out that it is impossible to sign in into Simulator running under macOS VM. Hence, we have no luck in even seeing out needed feature in the Reminders app. How inconvenient. Because I had no desire of putting my main machine under SIP disablement security risks, I gave up. For a while.
 ### Enabling debugger access without security risks
 Reverse engineering was always my excitement point. Unsolved mysteries about closed-source apps are periodically haunting me, reminding about them. One day, I found this fabulous command:
@@ -110,10 +114,13 @@ Remember, **ALWAYS** turn SIP on after experimenting. You never know when hacker
 ### Getting in
 So, finally we have an access to the debugger. No we just need to launch our simulator, log into Apple Account, launch Reminders and attach to the process in Xcode:
 ![6.png](/assets/images/emoji-picker/6.png)
+
 Here it is:
 ![7.png](/assets/images/emoji-picker/7.png)
+
 First thing first - let's navigate to the needed screen and run Debug View Hierarchy:
 ![8.png](/assets/images/emoji-picker/8.png)
+
 How cool is that?
 First thing that caught my attention is this strange vertical bar on the custom emoji button. What can it be? Focusing on it, we get the anticipated answer:
 ![9.png](/assets/images/emoji-picker/9.png)
@@ -149,8 +156,10 @@ final class EmojiPickerUIView: UITextField {
 }
 ```
 ![10.png](/assets/images/emoji-picker/10.png)
+
 Much better! And the search is now working properly:
 ![11.png](/assets/images/emoji-picker/11.png)
+
 However, there is still one minor difference, and I was really aimed at perfection after all these adventures. This small "Dictation" button is still present in our implementation. Let's get rid of it!
 ### The ugly bit
 Turns out that there is no public option for disabling dictation on the keyboard. But we still have one last chance to inspect Reminders: the binary itself. Firstly, let's try to find some symbols related to dictation in our runtime:
@@ -171,6 +180,7 @@ Breakpoint 1: 5 locations.
 ```
 Now, run the Reminders application, reopen the list editor and click on the custom emoji button:
 ![12.png](/assets/images/emoji-picker/12.png)
+
 Looks like we're getting somewhere. `-[UITextInputTraits setForceDisableDictation:]` is actually a pretty simple method, just storing the value of `w2` (the first parameter in ObjC world) into self (`x0`) instance:
 ![13.png](/assets/images/emoji-picker/13.png)
 
@@ -259,16 +269,20 @@ let function = unsafeBitCast(imp, to: PrivateIMP.self)
 function(self, selector, true)
 ```
 ![14.png](/assets/images/emoji-picker/14.png)
+
 Finally, we get the exact same result as the Reminders app!
 ### Some assembly required
 Sometimes, it is beneficial to debug and disassemble the binary at the same time, cross-referencing symbols and behavior. To obtain system app binary in the first place, you can either grab it from the simulator runtime, or extract from real iOS IPSW. 
 I decided to take a look at the Reminders in Hopper Disassembler. Firstly, I have found all symbols, related to `EmojiTextField` to see if I missed something:
 ![15.png](/assets/images/emoji-picker/15.png)
+
 Looks like `EmojiTextField` is pretty simple, since there is no configuration logic in init:
 ![16.png](/assets/images/emoji-picker/16.png)
+
 ### Text input source override
 However, for some reason, `EmojiTextField` overrides private `_textInputSource` and `set_textInputSource:` methods:
 ![17.png](/assets/images/emoji-picker/17.png)
+
 Here, `_textInputSource` returns `0x1` always, and `set_textInputSource` does nothing. Digging a little into `UIKitCore` binary I found this little C function: `_UITextInputSourceToString`. We can execute it from lldb with all interesting values of `textInputSource`:
 ```lldb
 (lldb) im loo -n _UITextInputSourceToString
@@ -303,6 +317,7 @@ So apparently, `EmojiTextField` overrides input source to always be equal to `KB
 ### Gluing logic
 Now, let's try to find the logic for enabling and disabling the emoji text input. Given that `EmojiTextField` has no real logic inside, my guess was to look for its delegate. It is fairly easy to find using `lldb` that its delegate is `TTRIListDetailEmblemsTableCell`. We can find implemented delegate methods using Hopper:
 ![18.png](/assets/images/emoji-picker/18.png)
+
 Leveraging built in pseudo-decompiler we can see the actual implementation. Let's look at the  `-[_TtC9Reminders30TTRIListDetailEmblemsTableCell textField:shouldChangeCharactersInRange:replacementString:]:`
 ```c
 /* @class _TtC9Reminders30TTRIListDetailEmblemsTableCell */
